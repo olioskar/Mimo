@@ -1,0 +1,327 @@
+/**
+	Byaccj þulusmiður fyrir MIMO, einfallt forritunarmál
+	sem byggir á og er samhæft Morpho.
+	Höfundur: Ólafur Óskar Egilsson, olioskar@gmail.com
+
+	Verkefni í Þýðendum, Kennari: Snorri Agnarsson
+*/
+%{
+	import java.io.*;
+	import java.util.*;
+%}
+
+%token <sval> INT,STRING,CHAR,OP,DOUBLE,NAME
+%token IF,ELSE,ELSEIF,WHILE,VAR
+%token RETURN,AND,OR,NOT
+%token <sval> TRUE,FALSE,NULL
+%type <sval> literal
+%%
+
+start	: { emit("\""+name+".mexe\" = main in\n!{{"); }
+		  program
+		  { emit("}}*BASIS;"); }
+		;
+
+program	: program function
+		| function 
+		;
+
+function: NAME { 
+			varCount = 0; 
+			varTable = new HashMap<String, Integer>();
+		} 
+		  '(' names ')' {
+			emit("#\""+$1+"[f"+varCount+"]\" = [ ");
+		} 
+		  '{' decls exprs '}' {
+		  	emit("(Return)"); 
+			emit("];");
+		}
+		;
+
+names	: /*tomt*/
+		| namelist
+		;
+
+namelist: NAME {
+			addVar($1);
+		}
+		| namelist ',' NAME  {
+			addVar($3);
+		}
+		;
+
+decls	: /*tomt*/
+		| VAR namelist ';' decls
+		;
+
+expr	: NAME '=' expr { 
+			emit("(Store "+findVar($1)+")");
+		}
+		| RETURN expr {
+			emit("(Return)");
+		}
+		| orExpr
+		;
+
+orExpr	: andExpr
+		| orExpr {
+			emit( "(GoTrue _L"+nextLabel+")" );
+		}
+		OR andExpr {
+			emit( "_L"+newLabel()+":" );
+		}
+		;
+
+andExpr	: notExpr
+		| andExpr {
+			emit("(GoFalse _L"+nextLabel+")");		
+		}
+		AND notExpr {
+			emit("_L"+newLabel()+":");
+		}
+		;
+
+notExpr	: NOT notExpr {
+			emit("(Not)");
+		}
+		| opExpr
+		;
+
+opExpr	: miniExpr
+		| opExpr OP {
+			emit("(StoreArgAcc "+ tmpPos +" 0)"); 
+			tmpPos--;
+		} 
+		  miniExpr {
+		  	tmpPos++; 
+			emit("(StoreArgAcc "+tmpPos+" 1)");
+			emit("(Call #\""+$2+"[f2]\" "+tmpPos+")");
+		}
+		;
+
+miniExpr: NAME {
+			emit("(Fetch "+findVar($1)+")");
+		}
+		| OP miniExpr {
+			emit("(StoreArgAcc "+tmpPos+" 0)");
+			emit("(Call #\""+$1+"[f1]\" "+tmpPos+")");
+		}
+		| '(' expr ')'
+		| whilExpr
+		| ifExpr
+		| callfunc
+		| literal {
+			emit("(MakeVal "+$1+")");
+		}
+		;
+
+callfunc: NAME '(' {
+			push(argCount);
+			argCount = 0;
+			tmpPos--;
+		}
+		  argList ')' {
+			tmpPos++;
+			emit("(Call #\""+$1+"[f"+argCount+"]\" "+tmpPos+")");
+			argCount = pop();
+		}
+		;
+
+argList	: nonEmptyArgList
+		|
+		;
+
+nonEmptyArgList: arg
+		| arg ',' nonEmptyArgList
+		;
+
+arg		: expr {
+			emit("(StoreArgAcc "+(tmpPos+1)+" "+argCount+")");
+			argCount++;
+		}
+;
+
+whilExpr: WHILE {
+			// put labels on stack
+			int beginL = newLabel();
+			int endL = newLabel();
+			push(endL); 	// set end label
+			push(beginL); 	// goto begin label
+			push(endL); 	// goto end label
+			push(beginL);	// set begin label
+
+			emit( "_L"+pop()+":"); // begin
+		}
+		expr {
+			emit( "(GoFalse _L"+pop()+")" ); // goto end
+		}
+		body {
+			emit( "(Go _L"+pop()+")" ); // goto begin
+			emit( "_L"+pop()+":" ); // end
+		}
+		;
+
+ifExpr	: IF expr { 
+			// put labels on stack
+			int endifL = newLabel();
+			int elseL = newLabel();
+			push(endifL);	// set endif label
+			push(elseL);	// set else label
+			push(endifL);	// goto endif label
+			push(elseL);	// goto else label
+
+			emit( "(GoFalse _L"+pop()+")" ); // goto else
+			}
+		  
+		  body {
+		  	emit( "(Go _L"+pop()+")"); // goto endif
+		  	emit( "_L"+pop()+":" ); // else
+		  	}
+		  elseif 
+		  else {
+		  	emit( "_L"+pop()+":"); // endif
+		  }
+		;
+
+elseif	:
+		| ELSEIF expr {
+			int endelseifL = newLabel();
+			push(endelseifL); // set endelseif label
+			push(endelseifL); // goto endelseif label
+			emit( "(GoFalse _L"+pop()+")" ); //goto endelseif
+		}
+		  body {
+			emit( "_L"+pop()+":" ); // endelseif
+		}
+		  elseif
+		;
+
+/* ATH! fallid testIf() if prufuforritinu (test.test) bendir til þess 
+   ad thad se "villa" her ef svo ma kalla. 
+   S.s if{} elseif{} elseif{} else{} - se if og fyrra elsif false en
+   seinna elsif true tha gerist else{} samt.
+
+   Betra vaeri ef ad else gerist eingungis se allt sem a undan kemur false.
+   (en thad er kanski alitamal)
+   Til ad laga tharf ad kikja eitthvad a nidursetningu label. */
+
+else	:
+		| ELSE body
+		;
+
+body	: '{' exprs '}'
+		;
+
+exprs	: /* no Expressions */
+		| expr ';' exprs
+		;
+
+literal : INT  /*sjálfgefin action er alltaf $$ = $1 */
+		| DOUBLE
+		| STRING
+		| CHAR
+		| TRUE
+		| FALSE
+		| NULL
+		;
+%%
+
+	static private String name;
+	private MimoLexer lexer;
+	private int varCount;
+	private HashMap<String,Integer> varTable;
+	private int tmpPos = -1;
+	private int nextLabel = 1;
+	private int argCount = 0;
+	private int argPos = 0;
+	
+	static class Link
+	{
+		int val;
+		Link next;
+		public Link( int n, Link l )
+		{
+			val = n;
+			next = l;
+		}
+	}
+	
+	Link stack = null;
+	
+	private int newLabel()
+	{
+		return nextLabel++;
+	}
+	// ...
+	
+	private void push( int n )
+	{
+		stack = new Link(n,stack);
+	}
+
+	private int pop()
+	{
+		int res = stack.val;
+		stack = stack.next;
+		return res;
+	}
+
+	private void addVar( String name )
+	{
+		if( varTable.get(name) != null )
+			yyerror("Variable already exists");
+		varTable.put(name,varCount++);
+	}
+
+	private int findVar( String name )
+	{
+		Integer res = varTable.get(name);
+		if( res == null )
+			yyerror("Variable does not exist");
+		return res;
+	}
+
+	private int yylex()
+	{
+		int yyl_return = -1;
+		try
+		{
+			yylval = null;
+			yyl_return = lexer.yylex();
+			if( yylval==null )
+				yylval = new MimoParserVal(MimoParser.yyname[yyl_return]);
+			//System.out.println("Token: "+MimoParser.yyname[yyl_return]+" Lexeme: "+yylval.sval);
+		}
+		catch (IOException e)
+		{
+			System.err.println("IO error: "+e);
+		}
+		return yyl_return;
+	}
+
+	public void yyerror( String error )
+	{
+		System.err.println("Error:  "+error);
+		System.err.println("Line:   "+lexer.getLine());
+		System.err.println("Column: "+lexer.getColumn());
+		System.exit(1);
+	}
+
+	public MimoParser( Reader r )
+	{
+		lexer = new MimoLexer(r,this);
+	}
+
+	public static void main( String args[] )
+	  	throws IOException
+	{
+		MimoParser yyparser = new MimoParser(new FileReader(args[0]));
+		name = args[0].substring(0,args[0].lastIndexOf('.'));
+		yyparser.yyparse();
+	}
+
+	public void emit( String s )
+	{
+		System.out.println(s);
+	}

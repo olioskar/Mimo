@@ -1,0 +1,2 @@
+#!/bin/bash
+JAR=morpho.jar; exec java -jar $JAR $@

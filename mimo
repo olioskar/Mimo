@@ -1,0 +1,17 @@
+#!/bin/bash        
+
+if [ -z "$1" ]; then 
+   echo Mimo compiler 
+   echo	Usage: mimo programToCompile
+else
+	
+	file=${1/.*/}
+	echo Compiling "$1" to Morpho Assembly
+	java MimoParser $1 > $file.masm
+	echo "$file".masm created
+	echo Compiling "$file".masm to morpho executable
+	./morpho -c $file.masm
+
+	echo "$file".mexe created
+	echo To run your program use the command: ./morpho "$file"
+fi

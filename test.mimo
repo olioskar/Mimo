@@ -1,0 +1,128 @@
+;;; Thetta forrit prufar fallskoll, if elseif else og while
+;;; til ad sanfaera mig um ad thula se rett skrifud
+
+;;; prufar fall med vidfongum
+;;; n: testFunc(x,y,z);
+;;; f:  x er strengurinn "stadid"
+;;; 	y = 1
+;;;		z = 2.0
+testFunc(x,y,z)
+{
+	writeln("tekur inn streng!");
+	writeln(x);
+
+	writeln("tekur inn heiltolu!");
+	if (y == 1)
+	{
+		writeln("stadid");
+	}
+	else
+	{
+		writeln("fallid");
+	};
+
+	writeln("tekur inn double!");
+	if (z == 2.0)
+	{
+		writeln("stadid");
+	}
+	else
+	{
+		writeln("fallid");
+	};
+}
+
+;;; Prufar if elseif og else
+testIf()
+{
+	var x;
+
+	writeln("Prufar einfalt if");
+	x = 0;
+	if (x == 0)
+	{
+		x + 1;
+		writeln("Stadid");
+	};
+
+	writeln("Prufar if - else");
+	x = 0;
+	if (x > 0)
+	{
+		writeln("Fallid");
+	}
+	else 
+	{
+		writeln("stadid");
+	};
+
+	writeln("Prufar if - elseif");
+	x = 0;
+	if (x < 0)
+	{
+		writeln("fallid");
+	}
+	elseif (x > 0)
+	{
+		writeln("fallid");
+	}
+	elseif (x == 0)
+	{
+		writeln("stadid");
+	}
+	else
+	{
+		writeln("Prufar if=false,elsif=false,elsif=true,else...");
+		writeln("fallid");
+	};
+
+	writeln("Prufar hreidrada if setningu");
+	x = 0;
+	if (x == 0)
+	{
+		x = 1;
+		if (x <= 1)
+		{
+			writeln("stadid");
+		}
+		elseif (x == 0) 
+		{
+			writeln("fallid");
+		};
+	};
+}
+;;; Prufar while lykkju
+testWhile()
+{
+	var x;
+	writeln("Prufa while lykkju");
+	x = 0;
+	while (x < 10)
+	{
+		x = x + 1;
+		writeln(x);
+	};
+	if (x == 10)
+	{
+		writeln("Stadid");
+	};
+}
+
+main()
+{
+	var x,y,z;
+	x = 1;
+	x = -x;
+	writeln(x);
+	x = -x;
+	writeln(x);
+	testFunc("stadid",1,2.0);
+	testIf();
+	testWhile();
+	writeln("prufa op");
+	x = 2;
+	y = 10;
+	z = x%y;
+
+
+}
